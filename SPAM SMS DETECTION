@@ -1,1 +1,47 @@
+import kagglehub
+import os
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.model_selection import train_test_split
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import classification_report, accuracy_score, confusion_matrix
 
+path = kagglehub.dataset_download("uciml/sms-spam-collection-dataset")
+dataset_file = os.path.join(path, "spam.csv")
+
+df = pd.read_csv(dataset_file, encoding="latin-1")[["v1", "v2"]]
+df.columns = ["label", "message"]
+
+df["label"] = df["label"].map({"ham": 0, "spam": 1})
+
+X_train, X_test, y_train, y_test = train_test_split(df["message"], df["label"], test_size=0.2, random_state=42)
+
+vectorizer = TfidfVectorizer(stop_words='english')
+X_train_tfidf = vectorizer.fit_transform(X_train)
+X_test_tfidf = vectorizer.transform(X_test)
+
+model = LogisticRegression(max_iter=1000)
+model.fit(X_train_tfidf, y_train)
+
+y_pred = model.predict(X_test_tfidf)
+
+print(classification_report(y_test, y_pred, zero_division=0))
+print(f"Accuracy: {accuracy_score(y_test, y_pred):.4f}")
+
+cm = confusion_matrix(y_test, y_pred)
+plt.figure(figsize=(5,4))
+sns.heatmap(cm, annot=True, fmt="d", cmap="Blues", xticklabels=["Ham", "Spam"], yticklabels=["Ham", "Spam"])
+plt.xlabel("Predicted")
+plt.ylabel("Actual")
+plt.title("Confusion Matrix")
+plt.tight_layout()
+plt.show()
+
+new_messages = ["Congratulations! You’ve won a free iPhone. Click here to claim now!", "Hey, are we still on for dinner tonight?"]
+new_vec = vectorizer.transform(new_messages)
+predictions = model.predict(new_vec)
+
+for msg, label in zip(new_messages, predictions):
+    print(f"Message: {msg}\nPredicted: {'Spam' if label else 'Ham'}\n")
